@@ -1,16 +1,17 @@
 mod vulkan;
 
 use ash::{
-    extensions::{
-        ext::DebugUtils,
-        khr::{Surface, Swapchain as SwapchainLoader},
-    },
+    ext::debug_utils,
+    ext::debug_utils::Instance as DebugUtils,
+    khr::surface::Instance as SurfaceLoader,
+    khr::swapchain::Device as SwapchainLoader,
+    khr::{surface, swapchain},
     vk, Device, Entry, Instance,
 };
 use imgui::*;
 use imgui_rs_vulkan_renderer::*;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use raw_window_handle::{HasDisplayHandle, HasRawDisplayHandle, HasRawWindowHandle};
 use std::{
     error::Error,
     ffi::{CStr, CString},
@@ -440,7 +441,7 @@ pub struct VulkanContext {
     pub instance: Instance,
     debug_utils: DebugUtils,
     debug_utils_messenger: vk::DebugUtilsMessengerEXT,
-    surface: Surface,
+    surface: SurfaceLoader,
     surface_khr: vk::SurfaceKHR,
     pub physical_device: vk::PhysicalDevice,
     graphics_q_index: u32,
@@ -459,13 +460,13 @@ impl VulkanContext {
             create_vulkan_instance(&entry, window, name)?;
 
         // Vulkan surface
-        let surface = Surface::new(&entry, &instance);
+        let surface = SurfaceLoader::new(&entry, &instance);
         let surface_khr = unsafe {
             ash_window::create_surface(
                 &entry,
                 &instance,
-                window.raw_display_handle(),
-                window.raw_window_handle(),
+                window.raw_display_handle()?,
+                window.raw_window_handle()?,
                 None,
             )?
         };
@@ -555,7 +556,7 @@ impl Swapchain {
             extent,
             khr,
             images,
-            image_views,
+            image_views: image_views.to_vec(),
             render_pass,
             framebuffers,
         })
@@ -583,7 +584,7 @@ impl Swapchain {
         self.extent = extent;
         self.khr = khr;
         self.images = images;
-        self.image_views = image_views;
+        self.image_views = image_views.to_vec();
         self.render_pass = render_pass;
         self.framebuffers = framebuffers;
 
@@ -637,8 +638,9 @@ fn create_vulkan_instance(
         .api_version(vk::make_api_version(0, 1, 0, 0));
 
     let mut extension_names =
-        ash_window::enumerate_required_extensions(window.raw_display_handle())?.to_vec();
-    extension_names.push(DebugUtils::NAME.as_ptr());
+        ash_window::enumerate_required_extensions(window.display_handle().unwrap().into())?
+            .to_vec();
+    extension_names.push(debug_utils::NAME.as_ptr());
 
     let instance_create_info = vk::InstanceCreateInfo::default()
         .application_info(&app_info)
@@ -687,7 +689,7 @@ unsafe extern "system" fn vulkan_debug_callback(
 
 fn create_vulkan_physical_device_and_get_graphics_and_present_qs_indices(
     instance: &Instance,
-    surface: &Surface,
+    surface: &SurfaceLoader,
     surface_khr: vk::SurfaceKHR,
 ) -> Result<(vk::PhysicalDevice, u32, u32), Box<dyn Error>> {
     log::debug!("Creating vulkan physical device");
@@ -735,7 +737,7 @@ fn create_vulkan_physical_device_and_get_graphics_and_present_qs_indices(
             };
             let extention_support = extension_props.iter().any(|ext| {
                 let name = unsafe { CStr::from_ptr(ext.extension_name.as_ptr()) };
-                SwapchainLoader::NAME == name
+                swapchain::NAME == name
             });
 
             // Does the device have available formats for the given surface
@@ -791,7 +793,7 @@ fn create_vulkan_device_and_graphics_and_present_qs(
             .collect::<Vec<_>>()
     };
 
-    let device_extensions_ptrs = [SwapchainLoader::NAME.as_ptr()];
+    let device_extensions_ptrs = [swapchain::NAME.as_ptr()];
 
     let device_create_info = vk::DeviceCreateInfo::default()
         .queue_create_infos(&queue_create_infos)
