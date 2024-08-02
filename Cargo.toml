@@ -20,7 +20,7 @@ imgui = { git = "https://github.com/imgui-rs/imgui-rs" }
 ash = { version = "0.38", default-features = false, features = ["debug"] }
 ultraviolet = "0.9"
 
-gpu-allocator = { git = "https://github.com/Sorrien/gpu-allocator/", default-features = false, features = [
+gpu-allocator = { version = "0.27", default-features = false, features = [
     "vulkan",
 ], optional = true }
 
