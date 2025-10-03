@@ -24,7 +24,7 @@ use winit::{
     dpi::PhysicalSize,
     event::{Event, WindowEvent},
     event_loop::EventLoop,
-    window::{Window, WindowBuilder},
+    window::{Window, WindowAttributes},
 };
 #[cfg(feature = "gpu-allocator")]
 use {
@@ -611,12 +611,14 @@ impl Swapchain {
 
 fn create_window(title: &str) -> Result<(Window, EventLoop<()>), Box<dyn Error>> {
     log::debug!("Creating window and event loop");
-    let event_loop = EventLoop::new().expect("failed to create eventloop!");
-    let window = WindowBuilder::new()
+
+    let event_loop = EventLoop::new().unwrap();
+    let window_attr = WindowAttributes::default()
         .with_title(title)
-        .with_inner_size(PhysicalSize::new(WIDTH, HEIGHT))
-        .with_resizable(true)
-        .build(&event_loop)?;
+        .with_inner_size(winit::dpi::LogicalSize::new(WIDTH, HEIGHT))
+        .with_resizable(true);
+
+    let window = event_loop.create_window(window_attr).unwrap();
 
     Ok((window, event_loop))
 }
